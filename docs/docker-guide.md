@@ -54,18 +54,18 @@ docker compose version
 
 ```bash
 # Search for images on Docker Hub
-docker search nginx
+docker search python
 
 # Download an image
-docker pull nginx
-docker pull ubuntu:22.04    # With specific tag
+docker pull python:3.11-slim
+docker pull postgres:15          # PostgreSQL database
 
 # List downloaded images
 docker images
 
 # Remove an image
-docker rmi nginx
-docker rmi -f nginx         # Force remove
+docker rmi python:3.11-slim
+docker rmi -f python:3.11-slim   # Force remove
 
 # Remove all unused images
 docker image prune -a
@@ -75,28 +75,28 @@ docker image prune -a
 
 ```bash
 # Run a container
-docker run nginx
+docker run python:3.11-slim python --version
 
 # Run in detached mode (background)
-docker run -d nginx
+docker run -d python:3.11-slim sleep infinity
 
 # Run with a custom name
-docker run -d --name my-nginx nginx
+docker run -d --name my-python python:3.11-slim sleep infinity
 
 # Run with port mapping (host:container)
-docker run -d -p 8080:80 nginx
+docker run -d -p 5000:5000 --name flask-app my-flask-image
 
 # Run with environment variables
-docker run -d -e MY_VAR=value nginx
+docker run -d -e FLASK_DEBUG=1 my-flask-image
 
 # Run with volume mount
-docker run -d -v /host/path:/container/path nginx
+docker run -d -v /host/path:/container/path my-flask-image
 
 # Run interactively with terminal
-docker run -it ubuntu bash
+docker run -it python:3.11-slim bash
 
 # Run and auto-remove when stopped
-docker run --rm nginx
+docker run --rm python:3.11-slim python -c "print('Hello Docker!')"
 
 # List running containers
 docker ps
@@ -105,17 +105,17 @@ docker ps
 docker ps -a
 
 # Stop a container
-docker stop my-nginx
+docker stop flask-app
 
 # Start a stopped container
-docker start my-nginx
+docker start flask-app
 
 # Restart a container
-docker restart my-nginx
+docker restart flask-app
 
 # Remove a container
-docker rm my-nginx
-docker rm -f my-nginx       # Force remove running container
+docker rm flask-app
+docker rm -f flask-app           # Force remove running container
 
 # Remove all stopped containers
 docker container prune
@@ -125,54 +125,57 @@ docker container prune
 
 ```bash
 # View container logs
-docker logs my-nginx
+docker logs flask-app
 
 # Follow logs in real-time
-docker logs -f my-nginx
+docker logs -f flask-app
 
 # Show last N lines
-docker logs --tail 100 my-nginx
+docker logs --tail 100 flask-app
 
 # Show logs with timestamps
-docker logs -t my-nginx
+docker logs -t flask-app
 
 # Combine options
-docker logs -f --tail 50 -t my-nginx
+docker logs -f --tail 50 -t flask-app
 ```
 
 ### Docker Exec
 
 ```bash
 # Execute a command in a running container
-docker exec my-nginx ls /etc/nginx
+docker exec flask-app ls /app
 
 # Open an interactive shell
-docker exec -it my-nginx bash
-docker exec -it my-nginx sh      # For Alpine-based images
+docker exec -it flask-app bash
+docker exec -it flask-app sh      # For Alpine-based images
 
 # Run as specific user
-docker exec -u root -it my-nginx bash
+docker exec -u root -it flask-app bash
 
 # Set environment variables
-docker exec -e MY_VAR=value my-nginx env
+docker exec -e MY_VAR=value flask-app env
+
+# Run a Python script in container
+docker exec flask-app python -c "print('Hello from container!')"
 ```
 
 ### Inspect and Debug
 
 ```bash
 # View container details
-docker inspect my-nginx
+docker inspect flask-app
 
 # View container resource usage
 docker stats
-docker stats my-nginx
+docker stats flask-app
 
 # View running processes in a container
-docker top my-nginx
+docker top flask-app
 
 # Copy files between host and container
-docker cp my-nginx:/etc/nginx/nginx.conf ./nginx.conf
-docker cp ./myfile.txt my-nginx:/tmp/
+docker cp flask-app:/app/data.json ./data.json
+docker cp ./myfile.txt flask-app:/app/
 ```
 
 ---
@@ -181,59 +184,76 @@ docker cp ./myfile.txt my-nginx:/tmp/
 
 A Dockerfile defines how to build an image.
 
-### Example: Node.js Application
+### Example: Flask Application
 
 ```dockerfile
 # Base image
-FROM node:18-alpine
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files first (for better caching)
-COPY package*.json ./
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Copy requirements first (for better caching)
+COPY requirements.txt .
 
 # Install dependencies
-RUN npm install
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5000
 
 # Command to run
-CMD ["node", "server.js"]
+CMD ["python", "app.py"]
 ```
 
-### Example: Python Application
+### Example: Jupyter Notebook for Data Science
 
 ```dockerfile
 FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /notebooks
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install data science packages
+RUN pip install --no-cache-dir \
+    jupyter \
+    jupyterlab \
+    pandas \
+    numpy \
+    matplotlib \
+    seaborn \
+    scikit-learn
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8888
 
-CMD ["python", "app.py"]
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
 ```
 
 ### Build and Run
 
 ```bash
 # Build an image from Dockerfile
-docker build -t myapp:1.0 .
+docker build -t flask-app:1.0 .
 
 # Build with different Dockerfile
-docker build -f Dockerfile.dev -t myapp:dev .
+docker build -f Dockerfile.jupyter -t jupyter-data:1.0 .
 
 # Build without cache
-docker build --no-cache -t myapp:1.0 .
+docker build --no-cache -t flask-app:1.0 .
+
+# Run the Flask application
+docker run -d -p 5000:5000 --name myapp flask-app:1.0
+
+# Run Jupyter Lab
+docker run -d -p 8888:8888 -v $(pwd)/notebooks:/notebooks jupyter-data:1.0
 ```
 
 ---
@@ -242,23 +262,34 @@ docker build --no-cache -t myapp:1.0 .
 
 Docker Compose allows you to define and run multi-container applications using a YAML file.
 
-### Example: docker-compose.yml
+### Example: docker-compose.yml (Flask + PostgreSQL + Jupyter)
 
 ```yaml
 version: "3.8"
 
 services:
-  web:
+  flask-app:
     build: .
     ports:
-      - "3000:3000"
+      - "5000:5000"
     environment:
-      - NODE_ENV=production
-      - DB_HOST=database
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://admin:secret@database:5432/myapp
     depends_on:
       - database
     volumes:
-      - ./logs:/app/logs
+      - .:/app
+
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/notebooks
+    depends_on:
+      - database
 
   database:
     image: postgres:15
@@ -303,21 +334,24 @@ docker compose ps
 
 # View logs
 docker compose logs
-docker compose logs -f web      # Follow specific service
+docker compose logs -f flask-app      # Follow specific service
 
 # Execute command in service
-docker compose exec web bash
+docker compose exec flask-app bash
+
+# Run a Python command in service
+docker compose exec flask-app python -c "print('Hello!')"
 
 # Rebuild images
 docker compose build
 docker compose up -d --build    # Rebuild and restart
 
 # Scale a service
-docker compose up -d --scale web=3
+docker compose up -d --scale flask-app=3
 
 # Restart services
 docker compose restart
-docker compose restart web
+docker compose restart flask-app
 ```
 
 ---
@@ -343,7 +377,7 @@ docker volume rm mydata
 docker volume prune
 
 # Use volume in container
-docker run -d -v mydata:/data nginx
+docker run -d -v mydata:/app/data flask-app
 ```
 
 ### Networks
@@ -359,13 +393,13 @@ docker network ls
 docker network inspect mynetwork
 
 # Connect container to network
-docker network connect mynetwork my-nginx
+docker network connect mynetwork flask-app
 
 # Disconnect from network
-docker network disconnect mynetwork my-nginx
+docker network disconnect mynetwork flask-app
 
 # Run container on specific network
-docker run -d --network mynetwork nginx
+docker run -d --network mynetwork flask-app
 
 # Remove network
 docker network rm mynetwork
@@ -392,36 +426,36 @@ docker system prune -a --volumes
 docker system df
 
 # Export container as tar
-docker export my-nginx > backup.tar
+docker export flask-app > backup.tar
 
 # Save image as tar
-docker save myapp:1.0 > myapp.tar
+docker save flask-app:1.0 > flask-app.tar
 
 # Load image from tar
-docker load < myapp.tar
+docker load < flask-app.tar
 ```
 
 ---
 
 ## Common Patterns
 
-### Development with Hot Reload
+### Development with Hot Reload (Flask)
 
 ```yaml
 # docker-compose.dev.yml
 version: "3.8"
 services:
-  app:
+  flask-app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     volumes:
       - .:/app
-      - /app/node_modules
     ports:
-      - "3000:3000"
+      - "5000:5000"
     environment:
-      - NODE_ENV=development
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
 ```
 
 Run with:
@@ -434,7 +468,8 @@ docker compose -f docker-compose.dev.yml up
 Create a `.dockerignore` file to exclude files from the build context:
 
 ```
-node_modules
+__pycache__
+*.pyc
 .git
 .env
 *.log
@@ -442,6 +477,9 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 README.md
+.venv
+venv
+.pytest_cache
 ```
 
 ---
@@ -450,7 +488,7 @@ README.md
 
 | Command | Description |
 |---------|-------------|
-| `docker run -d -p 80:80 nginx` | Run container in background with port mapping |
+| `docker run -d -p 5000:5000 flask-app` | Run container in background with port mapping |
 | `docker ps` | List running containers |
 | `docker ps -a` | List all containers |
 | `docker logs -f <container>` | Follow container logs |
@@ -469,7 +507,7 @@ README.md
 
 ## Next Steps
 
-1. Practice building images for your own applications
+1. Practice building images for your Flask applications
 2. Learn about multi-stage builds for smaller images
 3. Explore Docker registries (Docker Hub, GitHub Container Registry)
 4. Study container orchestration with Kubernetes or Docker Swarm

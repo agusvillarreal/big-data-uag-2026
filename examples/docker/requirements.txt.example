@@ -1,0 +1,18 @@
+# Example requirements.txt for Flask Application
+# Copy this file to your project root and rename to "requirements.txt"
+
+# Web framework
+flask==3.0.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+
+# Redis client (optional)
+redis==5.0.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Production server
+gunicorn==21.2.0

@@ -1,12 +1,18 @@
-# Example .dockerignore file
+# Example .dockerignore file for Python projects
 # Copy this file to your project root and rename to ".dockerignore"
 
-# Dependencies
-node_modules
+# Python cache and bytecode
 __pycache__
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
 venv
 .venv
+env
+.env.local
 
 # Version control
 .git
@@ -48,7 +54,12 @@ build
 coverage
 .coverage
 .pytest_cache
+htmlcov
 
 # Documentation
 README.md
 docs
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints
