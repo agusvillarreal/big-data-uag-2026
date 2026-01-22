@@ -505,6 +505,89 @@ venv
 
 ---
 
+## Quick Demo (Copy-Paste Ready)
+
+Run these commands in order. All files will be created in a temporary directory and cleaned up at the end.
+
+### Step 1: Create demo directory and files
+
+```bash
+mkdir -p /tmp/flask-demo && cd /tmp/flask-demo
+```
+
+```bash
+cat > app.py << 'EOF'
+from flask import Flask, jsonify
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return jsonify({'message': 'Hello from Flask in Docker!', 'status': 'running'})
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'healthy'})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+EOF
+```
+
+```bash
+cat > requirements.txt << 'EOF'
+flask==3.0.0
+EOF
+```
+
+```bash
+cat > Dockerfile << 'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["python", "app.py"]
+EOF
+```
+
+### Step 2: Build the image
+
+```bash
+docker build -t my-flask-image .
+```
+
+### Step 3: Run the container
+
+```bash
+docker run -d -p 5000:5000 --name flask-app my-flask-image
+```
+
+### Step 4: Test it
+
+```bash
+curl http://localhost:5000
+```
+
+Expected output:
+```json
+{"message":"Hello from Flask in Docker!","status":"running"}
+```
+
+### Step 5: View logs
+
+```bash
+docker logs flask-app
+```
+
+### Step 6: Clean up everything
+
+```bash
+docker stop flask-app && docker rm flask-app && docker rmi my-flask-image && rm -rf /tmp/flask-demo
+```
+
+---
+
 ## Next Steps
 
 1. Practice building images for your Flask applications
